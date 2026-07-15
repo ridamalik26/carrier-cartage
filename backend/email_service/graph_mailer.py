@@ -59,12 +59,9 @@ def _get_graph_token() -> str:
     return result["access_token"]
 
 
-def _send_via_graph(recipient: str, subject: str, body: str, attachment_path: str) -> None:
+def _send_via_graph(recipient: str, subject: str, body: str, attachment_bytes: bytes, attachment_name: str) -> None:
     token = _get_graph_token()
     sender = os.environ["GRAPH_SENDER_UPN"]
-
-    with open(attachment_path, "rb") as f:
-        attachment_bytes = f.read()
 
     message = {
         "message": {
@@ -73,7 +70,7 @@ def _send_via_graph(recipient: str, subject: str, body: str, attachment_path: st
             "toRecipients": [{"emailAddress": {"address": recipient}}],
             "attachments": [{
                 "@odata.type": "#microsoft.graph.fileAttachment",
-                "name": os.path.basename(attachment_path),
+                "name": attachment_name,
                 "contentBytes": base64.b64encode(attachment_bytes).decode("ascii"),
             }],
         },
@@ -89,7 +86,7 @@ def _send_via_graph(recipient: str, subject: str, body: str, attachment_path: st
     resp.raise_for_status()
 
 
-def _send_via_gmail_smtp(recipient: str, subject: str, body: str, attachment_path: str) -> None:
+def _send_via_gmail_smtp(recipient: str, subject: str, body: str, attachment_bytes: bytes, attachment_name: str) -> None:
     user = os.environ["GMAIL_SMTP_USER"]
     password = os.environ["GMAIL_SMTP_APP_PASSWORD"]
 
@@ -99,13 +96,12 @@ def _send_via_gmail_smtp(recipient: str, subject: str, body: str, attachment_pat
     msg["To"] = recipient
     msg.set_content(body)
 
-    with open(attachment_path, "rb") as f:
-        msg.add_attachment(
-            f.read(),
-            maintype="application",
-            subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=os.path.basename(attachment_path),
-        )
+    msg.add_attachment(
+        attachment_bytes,
+        maintype="application",
+        subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=attachment_name,
+    )
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
         smtp.login(user, password)
@@ -117,7 +113,8 @@ def send_report_email(
     name: str,
     overall_score: float,
     contractor_email: str | None,
-    report_path: str,
+    report_bytes: bytes,
+    report_name: str,
     period: str,
 ) -> SendResult:
     if overall_score >= 0.80:
@@ -142,9 +139,9 @@ def send_report_email(
     provider = os.environ.get("EMAIL_PROVIDER", "graph")
     try:
         if provider == "gmail_smtp":
-            _send_via_gmail_smtp(recipient, subject, body, report_path)
+            _send_via_gmail_smtp(recipient, subject, body, report_bytes, report_name)
         else:
-            _send_via_graph(recipient, subject, body, report_path)
+            _send_via_graph(recipient, subject, body, report_bytes, report_name)
         return SendResult(cc_number, recipient, True)
     except Exception as e:  # noqa: BLE001 - surfaced to the review-queue UI, not swallowed
         return SendResult(cc_number, recipient, False, error=str(e))

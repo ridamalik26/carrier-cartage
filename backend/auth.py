@@ -2,23 +2,28 @@
 
 This is an internal single-operator tool, so there is exactly one account,
 configured via environment variables (ADMIN_USERNAME / ADMIN_PASSWORD_HASH /
-AUTH_SALT in .env) rather than a users table. Change the credentials with
+AUTH_SALT). Change the credentials with
 `python -m backend.set_password <username> <new-password>` — see that script
-for details. Sessions are opaque bearer tokens held in memory; they reset
-whenever the server restarts, which is fine for a tool that's started fresh
-each evaluation cycle via start.bat/start.sh.
+for details.
+
+Sessions are stateless signed bearer tokens (HMAC-SHA256 over an embedded
+expiry, keyed with AUTH_SALT) rather than a server-side session table. That's
+required on Vercel — a serverless invocation can't rely on an in-memory dict
+surviving until the next request hits a different instance — and it works
+identically for local runs. The tradeoff: logout can't force-invalidate a
+token before its natural expiry, since there's no server-side revocation
+list; it just discards the token client-side.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
+import json
 import os
-import secrets
 import time
 
 TOKEN_TTL_SECONDS = 8 * 60 * 60  # 8 hours
-
-_active_tokens: dict[str, float] = {}
 
 
 def hash_password(password: str, salt: str) -> str:
@@ -36,23 +41,45 @@ def verify_credentials(username: str, password: str) -> bool:
     return hmac.compare_digest(hash_password(password, salt), expected_hash)
 
 
+def _signing_key() -> bytes:
+    salt = os.environ.get("AUTH_SALT", "")
+    if not salt:
+        raise RuntimeError("AUTH_SALT is not set — run backend.set_password to configure login credentials.")
+    return salt.encode("utf-8")
+
+
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
 def issue_token() -> str:
-    token = secrets.token_urlsafe(32)
-    _active_tokens[token] = time.time() + TOKEN_TTL_SECONDS
-    return token
+    payload_b64 = _b64url_encode(json.dumps({"exp": time.time() + TOKEN_TTL_SECONDS}).encode("utf-8"))
+    sig = hmac.new(_signing_key(), payload_b64.encode("ascii"), hashlib.sha256).digest()
+    return f"{payload_b64}.{_b64url_encode(sig)}"
 
 
 def verify_token(token: str) -> bool:
-    if not token:
+    if not token or "." not in token:
         return False
-    expiry = _active_tokens.get(token)
-    if expiry is None:
+    payload_b64, sig_b64 = token.rsplit(".", 1)
+    expected_sig = hmac.new(_signing_key(), payload_b64.encode("ascii"), hashlib.sha256).digest()
+    try:
+        given_sig = _b64url_decode(sig_b64)
+    except Exception:
         return False
-    if time.time() > expiry:
-        _active_tokens.pop(token, None)
+    if not hmac.compare_digest(expected_sig, given_sig):
         return False
-    return True
+    try:
+        payload = json.loads(_b64url_decode(payload_b64))
+    except Exception:
+        return False
+    return time.time() <= payload.get("exp", 0)
 
 
 def revoke_token(token: str) -> None:
-    _active_tokens.pop(token, None)
+    """No-op: tokens are stateless (see module docstring) — /api/logout just
+    tells the client to drop the token, the server has nothing to clear."""

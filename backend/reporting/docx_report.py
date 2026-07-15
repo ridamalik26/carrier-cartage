@@ -1,6 +1,7 @@
 """Per-contractor Word violation-summary report (Section 9)."""
 from __future__ import annotations
 
+import io
 import os
 
 from docxtpl import DocxTemplate
@@ -15,11 +16,12 @@ def ensure_template() -> str:
     return TEMPLATE_PATH
 
 
-def generate_report(cc_number: int, name: str, score: ContractorScore, period: str, output_dir: str,
-                     template_path: str | None = None) -> str:
+def generate_report(cc_number: int, name: str, score: ContractorScore, period: str,
+                     template_path: str | None = None) -> bytes:
+    """Renders the report in memory and returns the .docx bytes — cheap enough
+    to regenerate on every request instead of persisting it, so there's
+    nothing to keep alive across serverless invocations."""
     template_path = template_path or ensure_template()
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"violation_report_{cc_number}.docx")
 
     doc = DocxTemplate(template_path)
     doc.render({
@@ -29,5 +31,6 @@ def generate_report(cc_number: int, name: str, score: ContractorScore, period: s
         "categories": category_breakdown(score),
         "period": period,
     })
-    doc.save(output_path)
-    return output_path
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
