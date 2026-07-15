@@ -1,0 +1,13 @@
+# Secrets / local config
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Generated data (uploads, scored workbooks, reports, history archive)
+data/uploads/*
+data/output/*
+!data/uploads/.gitkeep
+!data/output/.gitkeep

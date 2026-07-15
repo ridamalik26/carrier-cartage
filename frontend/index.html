@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PSO — Contractor Compliance Ledger</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #12161C;
+    --panel: #1B212B;
+    --panel-alt: #232B36;
+    --line: #2E3742;
+    --amber: #E8A33D;
+    --amber-dim: #6b551f;
+    --teal: #4FA8A0;
+    --rust: #C1443C;
+    --text: #E9EDF2;
+    --muted: #8B96A3;
+    --mono: 'IBM Plex Mono', monospace;
+    --cond: 'IBM Plex Sans Condensed', sans-serif;
+    --body: 'IBM Plex Sans', sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: -1px -1px;
+    background-attachment: fixed;
+  }
+  #app{ max-width: 980px; margin: 0 auto; padding: 0 20px 60px; }
+
+  .statusbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--line);
+    margin-bottom: 28px; font-family: var(--mono); font-size: 12px; color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .statusbar .brand{
+    display:flex; align-items:center; gap:10px;
+    font-family: var(--cond); font-weight:700; font-size: 16px; color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .pso-mark{
+    width:30px; height:30px; border-radius:6px; flex:none;
+    background: linear-gradient(135deg,#1E8A4C,#0B5A30);
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--cond); font-weight:700; color:#fff; font-size:12px; letter-spacing:0.02em;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .brand-text small{
+    display:block; font-family: var(--mono); font-weight:400; font-size: 9.5px;
+    color: var(--muted); letter-spacing: 0.1em; margin-top:1px;
+  }
+  .apibar{ display:flex; align-items:center; gap:8px; }
+  .apibar input{
+    background: var(--panel); border:1px solid var(--line); color: var(--muted);
+    font-family: var(--mono); font-size: 11px; padding: 5px 8px; border-radius:4px; width: 190px;
+  }
+  .apibar input:focus{ outline:none; border-color: var(--amber); color: var(--text); }
+  .api-dot{ width:6px; height:6px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .api-dot.ok{ background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+  .api-dot.bad{ background: var(--rust); box-shadow: 0 0 6px var(--rust); }
+  .api-dot.pending{ background: var(--muted); }
+
+  .screen{ display:none; animation: fade .25s ease; }
+  .screen.active{ display:block; }
+  @keyframes fade{ from{ opacity:0; transform: translateY(4px);} to{opacity:1; transform:none;} }
+
+  h1.pagetitle{ font-family: var(--cond); font-weight:700; font-size: 26px; margin: 0 0 4px; letter-spacing: 0.01em; }
+  .eyebrow{ font-family: var(--mono); font-size: 11px; color: var(--amber); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px; display:block; }
+  .subcopy{ color: var(--muted); font-size: 14px; margin: 0 0 28px; max-width: 640px; line-height:1.5;}
+
+  label{ display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+  input[type=text], input[type=password], input[type=email], select, textarea{
+    width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 12px; border-radius: 4px; font-size: 14px; font-family: var(--body);
+    margin-bottom: 18px; outline: none;
+  }
+  textarea{ font-family: var(--mono); font-size: 13px; min-height: 90px; resize: vertical; }
+  input:focus, select:focus, textarea:focus, button:focus-visible{ border-color: var(--amber); box-shadow: 0 0 0 2px rgba(232,163,61,0.2); }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    background: var(--amber); color: #1a1204; border:none; padding: 11px 20px;
+    border-radius: 4px; font-family: var(--cond); font-weight:600; font-size: 14px;
+    cursor:pointer; letter-spacing:0.02em; transition: filter .15s;
+  }
+  .btn:hover{ filter: brightness(1.08); }
+  .btn:active{ filter: brightness(0.95); }
+  .btn.full{ width:100%; }
+  .btn.secondary{ background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .btn.secondary:hover{ border-color: var(--amber); color: var(--amber); }
+  .btn.small{ padding: 6px 12px; font-size: 12px; }
+  .btn.ghost{ background:none; color: var(--muted); border: 1px solid var(--line); }
+  .btn.ghost:hover{ border-color: var(--amber); color: var(--amber); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; filter:none; }
+  .error-msg{ color: var(--rust); font-size: 12px; font-family: var(--mono); margin: -10px 0 14px; }
+
+  .backrow{ margin-bottom: 22px; }
+  .backrow button{ background:none; border:none; color: var(--muted); font-family: var(--mono); font-size: 12px; cursor:pointer; padding:4px 0; letter-spacing:0.04em; }
+  .backrow button:hover{ color: var(--amber); }
+
+  .tilegrid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; }
+  .tile{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 22px 20px; cursor:pointer; position:relative; transition: border-color .15s, transform .1s;
+    min-height: 108px;
+  }
+  .tile:hover{ border-color: var(--amber); transform: translateY(-2px); }
+  .tile::before{
+    content: attr(data-case); position:absolute; top:0; left:18px;
+    background: var(--amber-dim); color: var(--amber); font-family: var(--mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 0 0 3px 3px; letter-spacing: 0.06em;
+  }
+  .tile .ticon{ font-size: 22px; margin: 14px 0 10px; }
+  .tile .ttitle{ font-family: var(--cond); font-weight:600; font-size: 16px; line-height:1.3; }
+  .tile .tsub{ font-size: 12px; color: var(--muted); margin-top:4px; }
+  .tile.done{ border-color: var(--teal); }
+  .tile.done::after{ content: '✓ LOGGED'; position:absolute; bottom:14px; right:16px; color: var(--teal); font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; }
+
+  .upload-panel{ background: var(--panel-alt); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-top: 18px; }
+  .upload-panel input[type=file]{ color: var(--muted); font-size: 13px; margin-bottom: 12px; display:block; }
+  .filerow{ display:flex; align-items:center; gap:10px; font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom:8px;}
+
+  .progress-strip{ display:flex; align-items:center; gap: 6px; margin: 20px 0; flex-wrap:wrap; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .progress-strip .seg{ width: 10px; height: 10px; border-radius: 2px; background: var(--line); }
+  .progress-strip .seg.done{ background: var(--teal); }
+
+  .banner{ border: 1px solid var(--teal); background: rgba(79,168,160,0.08); color: var(--teal); padding: 14px 16px; border-radius: 5px; font-family: var(--mono); font-size: 13px; margin: 20px 0; display:flex; align-items:center; gap: 10px; }
+  .banner.warn{ border-color: var(--amber); background: rgba(232,163,61,0.08); color: var(--amber); }
+  .banner.error{ border-color: var(--rust); background: rgba(193,68,60,0.08); color: var(--rust); }
+
+  .limits-form{ background: var(--panel); border:1px solid var(--line); border-radius:6px; padding: 24px; }
+  .limit-row{ display:grid; grid-template-columns: 1fr 160px; gap: 16px; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .limit-row:last-of-type{ border-bottom: none; }
+  .limit-row label{ margin:0; font-family: var(--body); font-size: 13.5px; color: var(--text); }
+  .limit-row input{ margin:0; text-align:right; font-family: var(--mono); }
+  .limit-code{ color: var(--muted); font-family: var(--mono); font-size: 11px; display:block; margin-top:2px; }
+
+  table.ledger{ width:100%; border-collapse: collapse; font-size: 13.5px; }
+  table.ledger th{ text-align:left; font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.ledger td{ padding: 12px; border-bottom: 1px solid var(--line); }
+  table.ledger tr:hover td{ background: rgba(255,255,255,0.02); }
+  .rank{ font-family: var(--mono); color: var(--muted); }
+  .sapcode{ font-family: var(--mono); color: var(--muted); font-size: 12px; }
+  .score-pill{ display:inline-block; padding: 3px 10px; border-radius: 20px; font-family: var(--mono); font-weight:600; font-size: 13px; }
+  .score-good{ background: rgba(79,168,160,0.15); color: var(--teal); }
+  .score-mid{ background: rgba(232,163,61,0.15); color: var(--amber); }
+  .score-bad{ background: rgba(193,68,60,0.15); color: var(--rust); }
+  .status-pill{ display:inline-flex; align-items:center; gap:5px; padding: 3px 10px; border-radius: 20px; font-family: var(--mono); font-weight:600; font-size: 11px; letter-spacing:0.04em; text-transform:uppercase; }
+  .status-flagged{ background: rgba(193,68,60,0.15); color: var(--rust); }
+  .status-cleared{ background: rgba(79,168,160,0.15); color: var(--teal); }
+  .rowtoggle{ background:none; border: 1px solid var(--line); color: var(--muted); width:24px; height:24px; border-radius:4px; cursor:pointer; font-family: var(--mono); font-size: 12px; line-height:1; }
+  .rowtoggle:hover{ border-color: var(--amber); color: var(--amber); }
+  tr.breakdown-row td{ background: var(--panel-alt); padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .breakdown-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap: 10px; }
+  .bd-cat{ border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; background: var(--panel); }
+  .bd-cat .bd-name{ font-size: 11px; color: var(--muted); font-family: var(--mono); text-transform:uppercase; letter-spacing:0.04em; }
+  .bd-cat .bd-val{ font-family: var(--mono); font-size: 14px; margin-top:3px; }
+  .bd-cat .bd-count{ font-size: 11px; color: var(--muted); margin-top:2px; }
+
+  .actionrow{ display:flex; gap: 12px; margin-top: 24px; flex-wrap:wrap; }
+  .group-label{ font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform:uppercase; letter-spacing: 0.1em; margin: 22px 0 10px; display:flex; align-items:center; gap:10px; }
+  .group-label::after{ content:''; flex:1; height:1px; background: var(--line); }
+
+  .review-list{ display:flex; flex-direction:column; gap: 10px; }
+  .review-item{ display:grid; grid-template-columns: 24px 1fr auto auto; align-items:center; gap: 14px; background: var(--panel); border:1px solid var(--line); border-radius:6px; padding: 14px 16px; }
+  .review-item input[type=checkbox]{ width:16px; height:16px; margin:0; accent-color: var(--amber); }
+  .review-name{ font-family: var(--cond); font-weight:600; font-size: 14.5px; }
+  .review-sub{ font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top:2px; }
+  .review-email{ width: 200px; margin: 0; padding: 7px 9px; font-size: 12px; }
+  .summary-banner{ border: 1px solid var(--amber); background: rgba(232,163,61,0.08); color: var(--amber); padding: 14px 16px; border-radius: 5px; font-family: var(--mono); font-size: 13px; margin: 20px 0; white-space: pre-line; }
+
+  .toast{ position: fixed; bottom: 24px; left:50%; transform: translateX(-50%); background: var(--panel-alt); border: 1px solid var(--teal); color: var(--teal); padding: 12px 20px; border-radius: 6px; font-family: var(--mono); font-size: 13px; opacity:0; pointer-events:none; transition: opacity .25s, transform .25s; z-index: 50; max-width: 80vw; }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(-6px); }
+  .toast.error{ border-color: var(--rust); color: var(--rust); }
+
+  .field-group{ margin-bottom: 22px; }
+  .radio-row{ display:flex; gap: 10px; margin-bottom: 16px; flex-wrap:wrap; }
+  .radio-chip{ border: 1px solid var(--line); border-radius: 20px; padding: 7px 16px; font-size: 13px; cursor:pointer; color: var(--muted); font-family: var(--mono); }
+  .radio-chip.active{ border-color: var(--amber); color: var(--amber); background: rgba(232,163,61,0.08); }
+  .contractor-list{ max-height: 220px; overflow-y:auto; border:1px solid var(--line); border-radius:5px; padding: 8px 4px; background: var(--panel-alt); }
+  .clist-item{ display:flex; align-items:center; gap:10px; padding: 8px 12px; font-size: 13.5px; border-radius:4px; }
+  .clist-item:hover{ background: rgba(255,255,255,0.03); }
+  .clist-item .code{ font-family: var(--mono); font-size:11px; color: var(--muted); margin-left:auto; }
+  .trend-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-top: 14px; }
+  .trend-card{ background: var(--panel); border:1px solid var(--line); border-radius:6px; padding: 16px; }
+  .trend-card h3{ font-size:13px; font-weight:600; margin:0 0 10px; color: var(--text); }
+  .legend-note{ font-size:12px; color: var(--muted); margin-top: 10px; font-family: var(--mono);}
+  .spinner{ display:inline-block; width:14px; height:14px; border-radius:50%; border:2px solid rgba(0,0,0,0.25); border-top-color:#1a1204; animation: spin .7s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="statusbar" id="statusbar" style="display:none;">
+    <div class="brand">
+      <div class="pso-mark">PSO</div>
+      <div class="brand-text">Contractor Compliance Ledger<small>PAKISTAN STATE OIL · FLEET MONITORING</small></div>
+    </div>
+    <div class="apibar">
+      <span><span class="api-dot pending" id="apiDot"></span><span id="apiStatusLabel">checking API…</span></span>
+      <input type="text" id="apiBaseInput" title="Backend API base URL — same origin by default; only change if the API runs on a different host/port.">
+      <button class="btn ghost" style="padding:5px 10px; font-size:11px;" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="screen active" id="screen-login">
+    <div style="display:flex; align-items:center; justify-content:center; min-height: 82vh;">
+      <div style="background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 40px 36px; width: 100%; max-width: 380px; position: relative;">
+        <div style="position:absolute; top:0; left:24px; width: 46px; height: 8px; background: var(--amber); border-radius: 0 0 3px 3px;"></div>
+        <div style="width:52px; height:52px; border-radius:10px; margin-bottom: 16px; background: linear-gradient(135deg,#1E8A4C,#0B5A30); display:flex; align-items:center; justify-content:center; font-family: var(--cond); font-weight:700; color:#fff; font-size: 19px; border: 1px solid rgba(255,255,255,0.15);">PSO</div>
+        <div style="font-family: var(--cond); font-weight:700; font-size: 22px; margin: 10px 0 2px;">Compliance Ledger</div>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 28px; letter-spacing:0.06em;">PAKISTAN STATE OIL · CONTRACTOR SIGN IN</div>
+        <label for="loginUser">User ID</label>
+        <input type="text" id="loginUser" placeholder="e.g. admin">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" placeholder="••••••••">
+        <div class="error-msg" style="display:none;" id="loginError">Enter a user ID and password to continue.</div>
+        <button class="btn full" onclick="doLogin()">Sign in</button>
+        <div style="font-size:11px; color:var(--muted); font-family: var(--mono); margin-top:14px;">Checked against the backend. Change credentials with: python -m backend.set_password &lt;user&gt; &lt;password&gt;</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen" id="screen-home">
+    <span class="eyebrow">Module select · 3 options</span>
+    <h1 class="pagetitle">What are you working on?</h1>
+    <p class="subcopy">Choose a module to evaluate contractor performance for a period, review historical trends, or manage contractor contact emails.</p>
+    <div class="tilegrid">
+      <div class="tile" data-case="CASE 01" onclick="goto('screen-period')">
+        <div class="ticon">📋</div>
+        <div class="ttitle">Evaluate Performance</div>
+        <div class="tsub">Score contractors for a selected period</div>
+      </div>
+      <div class="tile" data-case="CASE 02" onclick="goto('screen-historical')">
+        <div class="ticon">📈</div>
+        <div class="ttitle">Show Historical Performance</div>
+        <div class="tsub">Review score trends across periods you've already run</div>
+      </div>
+      <div class="tile" data-case="CASE 03" onclick="goto('screen-emails')">
+        <div class="ticon">✉️</div>
+        <div class="ttitle">Manage Contractor Emails</div>
+        <div class="tsub">Address book used when sending violation reports</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTRACTOR EMAILS -->
+  <div class="screen" id="screen-emails">
+    <div class="backrow"><button onclick="goto('screen-home')">← Back to module select</button></div>
+    <span class="eyebrow">Case 03 · Contractor email address book</span>
+    <h1 class="pagetitle">Contractor emails</h1>
+    <p class="subcopy">Stored on the backend (<code>data/contractor_emails.json</code>), so it survives server restarts. Used as the default recipient when sending violation reports from the Review &amp; Send screen — you can still override an address there for a one-off send.</p>
+
+    <div class="upload-panel">
+      <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+        <div style="flex:1; min-width:160px;">
+          <label for="emailCcInput">SAP / C/C number</label>
+          <input type="text" id="emailCcInput" placeholder="e.g. 7773000001" style="margin-bottom:0;">
+        </div>
+        <div style="flex:2; min-width:220px;">
+          <label for="emailAddrInput">Email address</label>
+          <input type="email" id="emailAddrInput" placeholder="contact@contractor.com" style="margin-bottom:0;">
+        </div>
+        <button class="btn" style="margin-bottom:0;" onclick="addContractorEmail()">Save</button>
+      </div>
+    </div>
+
+    <div class="group-label">Saved addresses</div>
+    <div style="overflow-x:auto;">
+      <table class="ledger">
+        <thead><tr><th>SAP / C/C number</th><th>Email</th><th></th></tr></thead>
+        <tbody id="emailsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PERIOD SELECT -->
+  <div class="screen" id="screen-period">
+    <div class="backrow"><button onclick="goto('screen-home')">← Back to module select</button></div>
+    <span class="eyebrow">Case 01 · Evaluate performance</span>
+    <h1 class="pagetitle">Select evaluation period</h1>
+    <p class="subcopy">Periods run in fixed biannual ranges, mapped to the fiscal year the live scoring formula uses (e.g. Jul–Dec 2025 is FY26).</p>
+    <div class="field-group" style="max-width:320px;">
+      <label for="periodSelect">Period</label>
+      <select id="periodSelect">
+        <option value="H1-2026" data-fy="FY26" data-label="Jan – Jun 2026" selected>Jan – Jun 2026</option>
+        <option value="H2-2025" data-fy="FY26" data-label="Jul – Dec 2025">Jul – Dec 2025</option>
+        <option value="H1-2025" data-fy="FY25" data-label="Jan – Jun 2025">Jan – Jun 2025</option>
+        <option value="H2-2024" data-fy="FY25" data-label="Jul – Dec 2024">Jul – Dec 2024</option>
+        <option value="H1-2024" data-fy="FY24" data-label="Jan – Jun 2024">Jan – Jun 2024</option>
+      </select>
+    </div>
+    <button class="btn" onclick="confirmPeriod()">Continue</button>
+  </div>
+
+  <!-- UPLOADS -->
+  <div class="screen" id="screen-uploads">
+    <div class="backrow"><button onclick="goto('screen-period')">← Change period</button></div>
+    <span class="eyebrow" id="uploadPeriodLabel">Case 01 · Period —</span>
+    <h1 class="pagetitle">Ingest source data</h1>
+    <p class="subcopy">Upload the raw SAP/violation files below — they're parsed and aggregated per contractor on the server. The 4 categories without a source file yet are entered manually. All 10 must be logged before you can continue.</p>
+
+    <div class="progress-strip" id="progressStrip"></div>
+
+    <div class="group-label">Raw files · auto-aggregated on upload</div>
+    <div class="tilegrid" id="uploadGridFiles"></div>
+
+    <div class="group-label">Manual entry · source file pending</div>
+    <div class="tilegrid" id="uploadGridManual"></div>
+
+    <div class="banner" id="allDoneBanner" style="display:none;">✓ All 10 categories logged and read successfully.</div>
+    <div class="actionrow">
+      <button class="btn" id="continueToOptionsBtn" disabled onclick="goto('screen-options')">Continue to scoring options</button>
+    </div>
+
+    <div class="upload-panel" id="uploadModal" style="display:none;">
+      <div style="font-family:var(--mono); font-size:12px; color:var(--muted); margin-bottom:10px;" id="uploadModalTitle"></div>
+      <div id="uploadModalFileInputs"></div>
+      <div class="filerow" id="fileStatus"></div>
+      <div class="actionrow">
+        <button class="btn" id="uploadConfirmBtn" onclick="confirmUpload()">Upload &amp; read file</button>
+        <button class="btn secondary" onclick="closeUploadModal()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="upload-panel" id="manualModal" style="display:none;">
+      <div style="font-family:var(--mono); font-size:12px; color:var(--muted); margin-bottom:10px;" id="manualModalTitle"></div>
+      <p class="subcopy" style="margin-bottom:10px;">One row per line: <code>cc_number,count</code> — e.g. <code>7773000001,2</code></p>
+      <textarea id="manualTextarea" placeholder="7773000001,0&#10;7773000002,3"></textarea>
+      <div class="actionrow">
+        <button class="btn" onclick="confirmManual()">Save counts</button>
+        <button class="btn secondary" onclick="closeManualModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTIONS -->
+  <div class="screen" id="screen-options">
+    <div class="backrow"><button onclick="goto('screen-uploads')">← Back to uploads</button></div>
+    <span class="eyebrow">Case 01 · Scoring · 2 options</span>
+    <h1 class="pagetitle">How should scores be calculated?</h1>
+    <p class="subcopy">Use the allowance limits already set on the backend, or set your own limits manually for this run.</p>
+    <div class="tilegrid">
+      <div class="tile" data-case="OPT I" onclick="calcWithBackendLimits()">
+        <div class="ticon">⚙️</div>
+        <div class="ttitle">Calculate final scores</div>
+        <div class="tsub">Use backend-set allowance limit values</div>
+      </div>
+      <div class="tile" data-case="OPT II" onclick="goto('screen-limits')">
+        <div class="ticon">🎚️</div>
+        <div class="ttitle">Set allowance limit</div>
+        <div class="tsub">Enter manual limit values for this run</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANUAL LIMITS -->
+  <div class="screen" id="screen-limits">
+    <div class="backrow"><button onclick="goto('screen-options')">← Back to options</button></div>
+    <span class="eyebrow">Case 01 · Option ii · Manual allowance limits</span>
+    <h1 class="pagetitle">Set allowance limits</h1>
+    <p class="subcopy">Each threshold-based category is scored as <span style="color:var(--text); font-family:var(--mono);">(denominator ÷ threshold) ÷ incident count × weight</span>, capped at its own weight. Zero incidents in a period awards the full weight. Category weights are fixed by the formula sheet and aren't editable here — only the thresholds are.</p>
+    <div class="limits-form">
+      <div class="limit-row">
+        <label>Accident threshold (kms travelled)<span class="limit-code">weight 0.15 · denominator: kms travelled</span></label>
+        <input type="text" id="lim-accident" value="2500000">
+      </div>
+      <div class="limit-row">
+        <label>Seal tempering limit<span class="limit-code">weight 0.10 · denominator: total loads</span></label>
+        <input type="text" id="lim-seal_temp" value="2000">
+      </div>
+      <div class="limit-row">
+        <label>Fake document limit<span class="limit-code">weight 0.10 · denominator: total loads</span></label>
+        <input type="text" id="lim-fake_documents" value="5000">
+      </div>
+      <div class="limit-row">
+        <label>Other OMC loading limit<span class="limit-code">weight 0.10 · denominator: total loads</span></label>
+        <input type="text" id="lim-other_omc" value="2000">
+      </div>
+      <div class="limit-row">
+        <label>Quality failure / unauthorized modification limit<span class="limit-code">weight 0.15 · denominator: total loads</span></label>
+        <input type="text" id="lim-quality_fail" value="10000">
+      </div>
+      <div class="limit-row">
+        <label>Abnormal shortage limit<span class="limit-code">weight 0.10 · denominator: total loads</span></label>
+        <input type="text" id="lim-abnormal_shortage" value="5000">
+      </div>
+      <div class="limit-row">
+        <label>HSE non-compliance limit<span class="limit-code">weight 0.10 · denominator: total loads</span></label>
+        <input type="text" id="lim-hse" value="2000">
+      </div>
+    </div>
+    <p class="subcopy" style="margin-top:18px; margin-bottom:0;">Ratio-based categories aren't threshold-driven, so nothing to set here: <strong style="color:var(--text);">OGRA Fleet %</strong>, <strong style="color:var(--text);">DDT %</strong>, <strong style="color:var(--text);">Medical Screening %</strong>.</p>
+    <div class="actionrow">
+      <button class="btn" onclick="executeManualLimits()">Execute</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen" id="screen-results">
+    <div class="backrow"><button onclick="goto('screen-options')">← Back to scoring options</button></div>
+    <span class="eyebrow" id="resultsEyebrow">Case 01 · Final scores</span>
+    <h1 class="pagetitle">Final calculations</h1>
+    <p class="subcopy">Contractors ranked by overall compliance score, highest to lowest. Below 80% is flagged for a violation report.</p>
+    <div style="overflow-x:auto;">
+      <table class="ledger">
+        <thead>
+          <tr><th></th><th>Rank</th><th>Contractor</th><th>SAP code</th><th>Fleet</th><th>Overall score</th><th>Status</th></tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+    <div class="actionrow">
+      <button class="btn" onclick="downloadExcel()">Download scored Excel</button>
+      <button class="btn secondary" id="reviewSendBtn" onclick="openReviewScreen()">Review &amp; send reports</button>
+      <button class="btn secondary" onclick="goto('screen-home')">Done</button>
+    </div>
+  </div>
+
+  <!-- REVIEW & SEND -->
+  <div class="screen" id="screen-review">
+    <div class="backrow"><button onclick="goto('screen-results')">← Back to results</button></div>
+    <span class="eyebrow">Case 01 · Review &amp; send</span>
+    <h1 class="pagetitle">Review flagged contractors</h1>
+    <p class="subcopy">Only contractors scoring below 80% get a violation summary report. Preview each, optionally set an email address, then approve the ones ready to send — nothing sends automatically.</p>
+    <div class="review-list" id="reviewList"></div>
+    <div class="actionrow">
+      <button class="btn" onclick="sendApproved()">Approve &amp; send selected</button>
+      <button class="btn secondary" onclick="goto('screen-results')">Back</button>
+    </div>
+    <div class="summary-banner" id="sendSummary" style="display:none;"></div>
+  </div>
+
+  <!-- HISTORICAL: period + contractor select -->
+  <div class="screen" id="screen-historical">
+    <div class="backrow"><button onclick="goto('screen-home')">← Back to module select</button></div>
+    <span class="eyebrow">Case 02 · Historical performance</span>
+    <h1 class="pagetitle">Select range and contractors</h1>
+    <p class="subcopy">Trends are built from the archived scored workbook for every period you've calculated (saved server-side under data/output/history after each "Calculate final scores"). Periods you haven't run yet won't show data.</p>
+
+    <div class="field-group" style="max-width:420px;">
+      <label>Period range</label>
+      <div style="display:flex; gap:12px;">
+        <select id="histFrom">
+          <option value="H1-2024">Jan – Jun 2024</option>
+          <option value="H2-2024">Jul – Dec 2024</option>
+          <option value="H1-2025" selected>Jan – Jun 2025</option>
+          <option value="H2-2025">Jul – Dec 2025</option>
+          <option value="H1-2026">Jan – Jun 2026</option>
+        </select>
+        <select id="histTo">
+          <option value="H1-2024">Jan – Jun 2024</option>
+          <option value="H2-2024">Jul – Dec 2024</option>
+          <option value="H1-2025">Jan – Jun 2025</option>
+          <option value="H2-2025">Jul – Dec 2025</option>
+          <option value="H1-2026" selected>Jan – Jun 2026</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Contractor selection</label>
+      <div class="radio-row">
+        <div class="radio-chip active" id="chip-all" onclick="setContractorMode('all')">Select all contractors</div>
+        <div class="radio-chip" id="chip-pick" onclick="setContractorMode('pick')">Search by SAP code / name</div>
+      </div>
+      <div id="contractorSearchWrap" style="display:none;">
+        <input type="text" id="contractorSearch" placeholder="Type SAP code or contractor name…" oninput="renderContractorList()">
+        <div class="contractor-list" id="contractorList"></div>
+      </div>
+    </div>
+
+    <button class="btn" onclick="showTrends()">Show trends</button>
+  </div>
+
+  <!-- TRENDS -->
+  <div class="screen" id="screen-trends">
+    <div class="backrow"><button onclick="goto('screen-historical')">← Change selection</button></div>
+    <span class="eyebrow">Case 02 · Score trend</span>
+    <h1 class="pagetitle" id="trendsTitle">Historical score trend</h1>
+    <p class="subcopy">Final compliance score and per-category breakdown across the periods you've calculated. Higher is better.</p>
+    <div class="legend-note" id="trendLegendNote"></div>
+    <div id="trendGrid" class="trend-grid"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   API wiring — talks to the FastAPI backend in ../backend/main.py.
+   Same-origin by default (this file is served BY that backend at
+   "/"), so API_BASE is empty and every call is a relative /api/...
+   path. Only override apiBaseInput if the API is on another host.
+   ============================================================ */
+let API_BASE = localStorage.getItem('cc_api_base') || '';
+let authToken = localStorage.getItem('cc_auth_token') || null;
+
+const apiBaseInput = document.getElementById('apiBaseInput');
+apiBaseInput.value = API_BASE;
+apiBaseInput.addEventListener('change', () => {
+  API_BASE = apiBaseInput.value.trim().replace(/\/$/, '');
+  localStorage.setItem('cc_api_base', API_BASE);
+  checkApiHealth();
+});
+
+async function api(path, options = {}) {
+  const opts = { ...options, headers: { ...(options.headers || {}) } };
+  if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 401 && path !== '/api/login') {
+    authToken = null;
+    localStorage.removeItem('cc_auth_token');
+    document.getElementById('statusbar').style.display = 'none';
+    goto('screen-login');
+    showToast('Session expired — please sign in again.', true);
+    throw new Error('Not authenticated');
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { const j = await res.json(); detail = j.detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  return res;
+}
+async function apiJson(path, options) {
+  const res = await api(path, options);
+  return res.json();
+}
+
+async function checkApiHealth() {
+  const dot = document.getElementById('apiDot');
+  const label = document.getElementById('apiStatusLabel');
+  dot.className = 'api-dot pending';
+  label.textContent = 'checking API…';
+  try {
+    await api('/api/upload-status');
+    dot.className = 'api-dot ok';
+    label.textContent = 'API connected';
+  } catch (e) {
+    dot.className = 'api-dot bad';
+    label.textContent = 'API unreachable';
+  }
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3800);
+}
+
+/* ---------------- navigation ---------------- */
+function goto(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'screen-uploads') renderUploadScreen();
+  if (id === 'screen-emails') renderEmailsScreen();
+  if (id === 'screen-historical') ensureHistoricalLoaded();
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const err = document.getElementById('loginError');
+  if (!user || !pass) {
+    err.textContent = 'Enter a user ID and password to continue.';
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+  try {
+    const res = await fetch(API_BASE + '/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      err.textContent = j.detail || 'Invalid username or password.';
+      err.style.display = 'block';
+      return;
+    }
+    const data = await res.json();
+    authToken = data.token;
+    localStorage.setItem('cc_auth_token', authToken);
+    document.getElementById('statusbar').style.display = 'flex';
+    goto('screen-home');
+    checkApiHealth();
+  } catch (e) {
+    err.textContent = 'Could not reach the API: ' + e.message;
+    err.style.display = 'block';
+  }
+}
+
+async function doLogout() {
+  try { await api('/api/logout', { method: 'POST' }); } catch (e) {}
+  authToken = null;
+  localStorage.removeItem('cc_auth_token');
+  document.getElementById('statusbar').style.display = 'none';
+  goto('screen-login');
+}
+
+/* If a token from a previous session is still valid, skip straight past login. */
+(async function bootFromExistingSession() {
+  if (!authToken) return;
+  try {
+    await api('/api/upload-status');
+    document.getElementById('statusbar').style.display = 'flex';
+    goto('screen-home');
+    checkApiHealth();
+  } catch (e) { /* token invalid/expired — stay on the login screen */ }
+})();
+
+/* ---------------- period ---------------- */
+let currentPeriod = { fy: 'FY26', label: 'Jan – Jun 2026', value: 'H1-2026' };
+
+async function confirmPeriod() {
+  const sel = document.getElementById('periodSelect');
+  const opt = sel.options[sel.selectedIndex];
+  currentPeriod = { fy: opt.dataset.fy, label: opt.dataset.label, value: opt.value };
+  try {
+    await apiJson('/api/period', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fy: currentPeriod.fy, period_label: currentPeriod.label, period_key: currentPeriod.value }),
+    });
+    document.getElementById('uploadPeriodLabel').textContent = `Case 01 · Period ${currentPeriod.label} (${currentPeriod.fy})`;
+    goto('screen-uploads');
+  } catch (e) {
+    showToast('Could not set period: ' + e.message, true);
+  }
+}
+
+/* ---------------- uploads ---------------- */
+const FILE_SOURCES = [
+  { key: 'master_data', title: 'Master Data', sub: 'Fleet, loads, kms, OGRA fleet', icon: '🗂️',
+    endpoint: '/api/upload/master-data', fields: [{ name: 'file', label: 'Master data (.xlsx)' }] },
+  { key: 'abnormal_shortage', title: 'Abnormal Shortages', sub: 'Incident count per contractor', icon: '📉',
+    endpoint: '/api/upload/abnormal-shortage', fields: [{ name: 'file', label: 'Abnormal shortages (.xlsx)' }] },
+  { key: 'fake_documents', title: 'Fake / Invalid Licenses', sub: 'Driver document violations', icon: '🪪',
+    endpoint: '/api/upload/fake-documents', fields: [{ name: 'file', label: 'Fake documents (.xlsx)' }] },
+  { key: 'quality_fail', title: 'Unauth. Mod. + Reversal Cases', sub: 'Combined quality-fail count', icon: '🔧',
+    endpoint: '/api/upload/quality-fail',
+    fields: [
+      { name: 'unauthorized_mod', label: 'Unauthorized modification (.xlsx)' },
+      { name: 'reversal_cases', label: 'Reversal cases (.xlsx)' },
+    ], alsoLogs: ['reversal_cases'] },
+  { key: 'seal_tempering', title: 'Seal Tampering', sub: 'Penalty detail sheet', icon: '🔒',
+    endpoint: '/api/upload/seal-tempering', fields: [{ name: 'file', label: 'Seal tampering (.xlsx)' }] },
+];
+
+const MANUAL_SOURCES = [
+  { key: 'accident', title: 'Accident', sub: 'TL accident count', icon: '🚧' },
+  { key: 'hse', title: 'HSE Observations', sub: 'Non-compliance count', icon: '⚠️' },
+  { key: 'omc', title: 'Other OMC Loading', sub: 'Incident count', icon: '⛽' },
+  { key: 'ats_trained', title: 'ATS Trained (DDT/Medical)', sub: 'Trained driver count', icon: '🩺' },
+];
+
+const ALL_10 = ['master_data', 'abnormal_shortage', 'fake_documents', 'quality_fail', 'reversal_cases',
+                'seal_tempering', 'accident', 'hse', 'omc', 'ats_trained'];
+
+let uploadStatus = { logged: [] };
+
+async function renderUploadScreen() {
+  await refreshUploadStatus();
+  const filesGrid = document.getElementById('uploadGridFiles');
+  filesGrid.innerHTML = '';
+  FILE_SOURCES.forEach(src => {
+    const done = uploadStatus.logged.includes(src.key);
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (done ? ' done' : '');
+    tile.dataset.case = done ? 'DONE' : 'UPLOAD';
+    tile.innerHTML = `<div class="ticon">${src.icon}</div><div class="ttitle">${src.title}</div><div class="tsub">${src.sub}</div>`;
+    tile.onclick = () => openUploadModal(src);
+    filesGrid.appendChild(tile);
+  });
+
+  const manualGrid = document.getElementById('uploadGridManual');
+  manualGrid.innerHTML = '';
+  MANUAL_SOURCES.forEach(src => {
+    const done = uploadStatus.logged.includes(src.key);
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (done ? ' done' : '');
+    tile.dataset.case = done ? 'DONE' : 'ENTER';
+    tile.innerHTML = `<div class="ticon">${src.icon}</div><div class="ttitle">${src.title}</div><div class="tsub">${src.sub}</div>`;
+    tile.onclick = () => openManualModal(src);
+    manualGrid.appendChild(tile);
+  });
+
+  const strip = document.getElementById('progressStrip');
+  strip.innerHTML = ALL_10.map(k => `<div class="seg ${uploadStatus.logged.includes(k) ? 'done' : ''}"></div>`).join('')
+    + ` ${uploadStatus.logged.length}/10 logged`;
+
+  const allDone = uploadStatus.logged.length >= ALL_10.length;
+  document.getElementById('allDoneBanner').style.display = allDone ? 'flex' : 'none';
+  document.getElementById('continueToOptionsBtn').disabled = !allDone;
+}
+
+async function refreshUploadStatus() {
+  try {
+    uploadStatus = await apiJson('/api/upload-status');
+  } catch (e) {
+    showToast('Could not reach API for upload status: ' + e.message, true);
+  }
+}
+
+let activeUploadSource = null;
+function openUploadModal(src) {
+  activeUploadSource = src;
+  document.getElementById('uploadModalTitle').textContent = src.title;
+  const container = document.getElementById('uploadModalFileInputs');
+  container.innerHTML = src.fields.map(f =>
+    `<div><label>${f.label}</label><input type="file" data-field="${f.name}" accept=".xlsx"></div>`
+  ).join('');
+  document.getElementById('fileStatus').textContent = '';
+  document.getElementById('uploadModal').style.display = 'block';
+  document.getElementById('uploadModal').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function closeUploadModal() {
+  document.getElementById('uploadModal').style.display = 'none';
+  activeUploadSource = null;
+}
+
+async function confirmUpload() {
+  if (!activeUploadSource) return;
+  const inputs = document.querySelectorAll('#uploadModalFileInputs input[type=file]');
+  const form = new FormData();
+  for (const inp of inputs) {
+    if (!inp.files[0]) {
+      document.getElementById('fileStatus').textContent = 'All files for this source are required.';
+      return;
+    }
+    form.append(inp.dataset.field, inp.files[0]);
+  }
+  const btn = document.getElementById('uploadConfirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Uploading…';
+  document.getElementById('fileStatus').textContent = 'Uploading and parsing on the server — larger files (master data) can take a while.';
+  try {
+    const result = await apiJson(activeUploadSource.endpoint, { method: 'POST', body: form });
+    showToast(`${activeUploadSource.title}: ${result.contractors_found} contractors read.`);
+    closeUploadModal();
+    await renderUploadScreen();
+  } catch (e) {
+    document.getElementById('fileStatus').textContent = 'Failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload & read file';
+  }
+}
+
+let activeManualSource = null;
+function openManualModal(src) {
+  activeManualSource = src;
+  document.getElementById('manualModalTitle').textContent = src.title + ' — manual counts';
+  document.getElementById('manualTextarea').value = '';
+  document.getElementById('manualModal').style.display = 'block';
+  document.getElementById('manualModal').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function closeManualModal() {
+  document.getElementById('manualModal').style.display = 'none';
+  activeManualSource = null;
+}
+async function confirmManual() {
+  if (!activeManualSource) return;
+  const lines = document.getElementById('manualTextarea').value.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = [];
+  for (const line of lines) {
+    const [cc, count] = line.split(',').map(s => s.trim());
+    if (!cc || count === undefined || isNaN(Number(cc)) || isNaN(Number(count))) {
+      showToast(`Bad row: "${line}" — expected cc_number,count`, true);
+      return;
+    }
+    rows.push({ cc_number: Number(cc), count: Number(count) });
+  }
+  if (!rows.length) { showToast('Enter at least one row.', true); return; }
+  try {
+    await apiJson(`/api/manual/${activeManualSource.key}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    });
+    showToast(`${activeManualSource.title}: ${rows.length} contractors recorded.`);
+    closeManualModal();
+    await renderUploadScreen();
+  } catch (e) {
+    showToast('Failed: ' + e.message, true);
+  }
+}
+
+/* ---------------- scoring options / limits ---------------- */
+async function calcWithBackendLimits() {
+  await runCalculate();
+}
+
+async function executeManualLimits() {
+  const body = {};
+  ['accident', 'seal_temp', 'fake_documents', 'other_omc', 'quality_fail', 'abnormal_shortage', 'hse'].forEach(k => {
+    const el = document.getElementById('lim-' + k);
+    const v = parseFloat(el.value);
+    if (!isNaN(v)) body[k] = v;
+  });
+  try {
+    await apiJson('/api/limits', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    await runCalculate();
+  } catch (e) {
+    showToast('Could not set limits: ' + e.message, true);
+  }
+}
+
+let lastResults = [];
+async function runCalculate() {
+  showToast('Calculating scores…');
+  try {
+    const result = await apiJson('/api/calculate', { method: 'POST' });
+    lastResults = result.results;
+    renderResults();
+    goto('screen-results');
+  } catch (e) {
+    showToast('Calculation failed: ' + e.message, true);
+  }
+}
+
+/* ---------------- results ---------------- */
+function scoreClass(score) {
+  if (score >= 80) return 'score-good';
+  if (score >= 60) return 'score-mid';
+  return 'score-bad';
+}
+
+function renderResults() {
+  document.getElementById('resultsEyebrow').textContent = `Case 01 · Final scores · ${currentPeriod.label}`;
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+  lastResults.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button class="rowtoggle" onclick="toggleBreakdown(this, ${r.cc_number})">+</button></td>
+      <td class="rank">${i + 1}</td>
+      <td>${r.name}</td>
+      <td class="sapcode">${r.cc_number}</td>
+      <td>${r.fleet}</td>
+      <td><span class="score-pill ${scoreClass(r.overall_score)}">${r.overall_score.toFixed(2)}%</span></td>
+      <td><span class="status-pill ${r.flagged ? 'status-flagged' : 'status-cleared'}">${r.flagged ? 'Flagged' : 'Cleared'}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+const CATEGORY_LABELS = {
+  accident: 'Accident %', ddt: 'DDT %', medical_screening: 'Medical Screening %', ogra_fleet: 'OGRA fleet %',
+  hse: 'HSE Observation', quality_fail: 'Quality Fail %', abnormal_shortage: 'Abnormal Shortage',
+  fake_documents: 'Fake Documents', seal_temp: 'Seal Tempering', other_omc: 'Other OMC Loading',
+};
+
+function toggleBreakdown(btn, ccNumber) {
+  const tr = btn.closest('tr');
+  const existing = tr.nextElementSibling;
+  if (existing && existing.classList.contains('breakdown-row')) {
+    existing.remove();
+    btn.textContent = '+';
+    return;
+  }
+  document.querySelectorAll('tr.breakdown-row').forEach(r => r.remove());
+  document.querySelectorAll('.rowtoggle').forEach(b => b.textContent = '+');
+  btn.textContent = '−';
+
+  const r = lastResults.find(x => x.cc_number === ccNumber);
+  const row = document.createElement('tr');
+  row.className = 'breakdown-row';
+  const cells = Object.entries(r.category_scores).map(([key, val]) => {
+    const count = r.category_counts[key];
+    return `<div class="bd-cat">
+      <div class="bd-name">${CATEGORY_LABELS[key] || key}</div>
+      <div class="bd-val">${val.toFixed(2)}%</div>
+      ${count !== undefined ? `<div class="bd-count">${count} incident${count === 1 ? '' : 's'}</div>` : ''}
+    </div>`;
+  }).join('');
+  row.innerHTML = `<td colspan="7"><div class="breakdown-grid">${cells}</div></td>`;
+  tr.parentNode.insertBefore(row, tr.nextSibling);
+}
+
+async function downloadExcel() {
+  try {
+    const res = await api('/api/download/excel');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scored_${currentPeriod.fy}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast('Download failed: ' + e.message, true);
+  }
+}
+
+/* ---------------- contractor email address book ---------------- */
+let contractorEmailBook = {};
+
+async function loadContractorEmailBook() {
+  try {
+    const data = await apiJson('/api/contractor-emails');
+    contractorEmailBook = data.emails || {};
+  } catch (e) {
+    showToast('Could not load contractor emails: ' + e.message, true);
+  }
+  return contractorEmailBook;
+}
+
+async function renderEmailsScreen() {
+  await loadContractorEmailBook();
+  const tbody = document.getElementById('emailsBody');
+  const entries = Object.entries(contractorEmailBook);
+  tbody.innerHTML = entries.length ? entries.map(([cc, email]) => `
+    <tr>
+      <td class="sapcode">${cc}</td>
+      <td>${email}</td>
+      <td><button class="btn small secondary" onclick="deleteContractorEmail(${cc})">Remove</button></td>
+    </tr>
+  `).join('') : '<tr><td colspan="3" class="subcopy" style="padding:12px 0;">No contractor emails saved yet.</td></tr>';
+}
+
+async function addContractorEmail() {
+  const ccInput = document.getElementById('emailCcInput');
+  const emailInput = document.getElementById('emailAddrInput');
+  const cc = ccInput.value.trim();
+  const email = emailInput.value.trim();
+  if (!cc || isNaN(Number(cc)) || !email) {
+    showToast('Enter a valid SAP/C-C number and an email address.', true);
+    return;
+  }
+  try {
+    await apiJson('/api/contractor-emails', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emails: { [cc]: email } }),
+    });
+    ccInput.value = ''; emailInput.value = '';
+    showToast('Saved.');
+    renderEmailsScreen();
+  } catch (e) {
+    showToast('Save failed: ' + e.message, true);
+  }
+}
+
+async function deleteContractorEmail(ccNumber) {
+  try {
+    await api(`/api/contractor-emails/${ccNumber}`, { method: 'DELETE' });
+    showToast('Removed.');
+    renderEmailsScreen();
+  } catch (e) {
+    showToast('Remove failed: ' + e.message, true);
+  }
+}
+
+/* ---------------- review & send ---------------- */
+async function openReviewScreen() {
+  const flagged = lastResults.filter(r => r.flagged);
+  await loadContractorEmailBook();
+  const list = document.getElementById('reviewList');
+  list.innerHTML = '';
+  if (!flagged.length) {
+    list.innerHTML = '<div class="subcopy">No flagged contractors this run — nothing to review.</div>';
+  }
+  flagged.forEach(r => {
+    const savedEmail = contractorEmailBook[r.cc_number] || contractorEmailBook[String(r.cc_number)] || '';
+    const item = document.createElement('div');
+    item.className = 'review-item';
+    item.innerHTML = `
+      <input type="checkbox" data-cc="${r.cc_number}" checked>
+      <div>
+        <div class="review-name">${r.name}</div>
+        <div class="review-sub">${r.cc_number} · ${r.overall_score.toFixed(2)}%</div>
+      </div>
+      <input type="email" class="review-email" placeholder="contractor email" value="${savedEmail}" data-cc-email="${r.cc_number}">
+      <button class="btn small secondary" onclick="previewReport(${r.cc_number})">Preview</button>
+    `;
+    list.appendChild(item);
+  });
+  document.getElementById('sendSummary').style.display = 'none';
+  goto('screen-review');
+}
+
+async function previewReport(ccNumber) {
+  try {
+    const res = await api(`/api/reports/preview/${ccNumber}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `violation_report_${ccNumber}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast('Preview failed: ' + e.message, true);
+  }
+}
+
+async function sendApproved() {
+  const checked = [...document.querySelectorAll('#reviewList input[type=checkbox]:checked')]
+    .map(cb => Number(cb.dataset.cc));
+  if (!checked.length) { showToast('Select at least one contractor to send.', true); return; }
+
+  const emails = {};
+  document.querySelectorAll('#reviewList input[data-cc-email]').forEach(inp => {
+    if (inp.value.trim()) emails[Number(inp.dataset.ccEmail)] = inp.value.trim();
+  });
+  if (Object.keys(emails).length) {
+    try {
+      await apiJson('/api/contractor-emails', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails }),
+      });
+    } catch (e) {
+      showToast('Could not save emails: ' + e.message, true);
+    }
+  }
+
+  try {
+    const result = await apiJson('/api/reports/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cc_numbers: checked }),
+    });
+    const failLines = result.details.filter(d => !d.success).map(d => `  • ${d.cc_number}: ${d.error}`);
+    const summary = document.getElementById('sendSummary');
+    summary.style.display = 'block';
+    summary.textContent = `${result.sent} of ${checked.length} flagged contractors emailed successfully, ${result.failed} failed.` +
+      (failLines.length ? '\n' + failLines.join('\n') : '');
+  } catch (e) {
+    showToast('Send failed: ' + e.message, true);
+  }
+}
+
+/* ---------------- historical (server-archived workbooks) ---------------- */
+const PERIOD_ORDER = ['H1-2024', 'H2-2024', 'H1-2025', 'H2-2025', 'H1-2026'];
+const CATEGORY_LABELS = {
+  overall: 'Overall Score',
+  accident: 'Accident %',
+  ddt: 'DDT %',
+  medical_screening: 'Medical Screening %',
+  ogra_fleet: 'OGRA fleet %',
+  hse: 'HSE Observation',
+  quality_fail: 'Quality Fail & Unauthorized Mod %',
+  abnormal_shortage: 'Abnormal Shortage',
+  fake_documents: 'Fake Documents',
+  seal_temp: 'Seal Tempering',
+  other_omc: 'Other OMC Loading',
+};
+
+let contractorMode = 'all';
+let historicalData = {};
+let historicalLoaded = false;
+
+async function ensureHistoricalLoaded() {
+  if (historicalLoaded) return;
+  try {
+    const res = await apiJson('/api/historical');
+    historicalData = {};
+    res.periods.forEach(p => { historicalData[p.period_key] = p; });
+  } catch (e) {
+    historicalData = {};
+  }
+  historicalLoaded = true;
+}
+
+function setContractorMode(mode) {
+  contractorMode = mode;
+  document.getElementById('chip-all').classList.toggle('active', mode === 'all');
+  document.getElementById('chip-pick').classList.toggle('active', mode === 'pick');
+  document.getElementById('contractorSearchWrap').style.display = mode === 'pick' ? 'block' : 'none';
+  if (mode === 'pick') renderContractorList();
+}
+
+function allKnownContractors() {
+  const map = new Map();
+  Object.values(historicalData).forEach(run => run.results.forEach(r => map.set(r.cc_number, r.name)));
+  return [...map.entries()].map(([cc_number, name]) => ({ cc_number, name }));
+}
+
+async function renderContractorList() {
+  await ensureHistoricalLoaded();
+  const q = document.getElementById('contractorSearch').value.trim().toLowerCase();
+  const list = document.getElementById('contractorList');
+  const contractors = allKnownContractors().filter(c =>
+    !q || String(c.cc_number).includes(q) || c.name.toLowerCase().includes(q)
+  );
+  list.innerHTML = contractors.map(c => `
+    <label class="clist-item">
+      <input type="checkbox" value="${c.cc_number}" class="hist-pick">
+      ${c.name}<span class="code">${c.cc_number}</span>
+    </label>
+  `).join('') || '<div class="clist-item">No contractors found in the archived history yet — run an evaluation first.</div>';
+}
+
+let trendCharts = [];
+async function showTrends() {
+  await ensureHistoricalLoaded();
+
+  const fromIdx = PERIOD_ORDER.indexOf(document.getElementById('histFrom').value);
+  const toIdx = PERIOD_ORDER.indexOf(document.getElementById('histTo').value);
+  const [lo, hi] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+  const periodsInRange = PERIOD_ORDER.slice(lo, hi + 1);
+
+  const availablePeriods = periodsInRange.filter(p => historicalData[p]);
+  const missingPeriods = periodsInRange.filter(p => !historicalData[p]);
+
+  let selectedCcs;
+  if (contractorMode === 'all') {
+    selectedCcs = allKnownContractors().map(c => c.cc_number);
+  } else {
+    selectedCcs = [...document.querySelectorAll('.hist-pick:checked')].map(cb => Number(cb.value));
+  }
+
+  goto('screen-trends');
+  const note = document.getElementById('trendLegendNote');
+  const grid = document.getElementById('trendGrid');
+
+  trendCharts.forEach(c => c.destroy());
+  trendCharts = [];
+  grid.innerHTML = '';
+
+  if (!availablePeriods.length || !selectedCcs.length) {
+    note.textContent = 'No archived data for this selection yet. Run "Evaluate Performance" for at least one period in range first.';
+    return;
+  }
+  if (typeof Chart === 'undefined') {
+    note.textContent = 'Chart.js failed to load (no internet access on this machine) — cannot render the trend charts.';
+    return;
+  }
+
+  const nameByCc = new Map();
+  availablePeriods.forEach(p => historicalData[p].results.forEach(r => nameByCc.set(r.cc_number, r.name)));
+  const labels = availablePeriods.map(p => historicalData[p].period_label);
+
+  Object.entries(CATEGORY_LABELS).forEach(([key, label]) => {
+    const card = document.createElement('div');
+    card.className = 'trend-card';
+    card.innerHTML = `<h3>${label}</h3><canvas height="220"></canvas>`;
+    grid.appendChild(card);
+
+    const datasets = selectedCcs.map((cc, i) => {
+      const data = availablePeriods.map(p => {
+        const r = historicalData[p].results.find(x => x.cc_number === cc);
+        if (!r) return null;
+        return key === 'overall' ? r.overall_score : (r.category_scores[key] ?? null);
+      });
+      const hue = (i * 47) % 360;
+      return {
+        label: nameByCc.get(cc) || String(cc),
+        data,
+        borderColor: `hsl(${hue}, 65%, 60%)`,
+        backgroundColor: `hsl(${hue}, 65%, 60%)`,
+        spanGaps: true,
+        tension: 0.25,
+      };
+    });
+
+    const chart = new Chart(card.querySelector('canvas').getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        scales: { y: { min: 0, max: 100, ticks: { color: '#8B96A3' } }, x: { ticks: { color: '#8B96A3' } } },
+        plugins: { legend: { labels: { color: '#E9EDF2', boxWidth: 10, font: { size: 10 } } } },
+      },
+    });
+    trendCharts.push(chart);
+  });
+
+  note.textContent = missingPeriods.length
+    ? `No archived data for: ${missingPeriods.map(p => historicalData[p]?.period_label || p).join(', ')} — those periods are omitted above.`
+    : 'All periods in range have archived data.';
+}
+
+/* ---------------- clock / boot ---------------- */
+setInterval(() => {
+  const el = document.getElementById('clock');
+  if (el) el.textContent = new Date().toLocaleTimeString();
+}, 1000);
+</script>
+</body>
+</html>
