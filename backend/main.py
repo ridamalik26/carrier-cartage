@@ -51,14 +51,17 @@ CONTRACTOR_EMAILS_PATH = os.path.join(BASE_DIR, "data", "contractor_emails.json"
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-# Presence of these env vars is what decides local-disk vs. Vercel storage —
-# see module docstring. Set by adding the Vercel KV + Blob integrations to
-# the project (Storage tab in the Vercel dashboard).
+# Vercel's filesystem is read-only everywhere except /tmp, regardless of
+# whether KV/Blob are configured yet — so directory creation is gated on
+# actually running on Vercel (which sets VERCEL=1 automatically), not on
+# REMOTE_STORAGE. Until KV + Blob are added, storage-dependent endpoints
+# raise a clear error instead of silently no-op'ing or crashing at import.
+ON_VERCEL = bool(os.environ.get("VERCEL"))
 REMOTE_STORAGE = bool(os.environ.get("BLOB_READ_WRITE_TOKEN")) and bool(os.environ.get("KV_REST_API_URL"))
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-if not REMOTE_STORAGE:
+if not ON_VERCEL:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(REPORTS_DIR, exist_ok=True)
