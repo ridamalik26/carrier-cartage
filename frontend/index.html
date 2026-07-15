@@ -864,6 +864,7 @@ function renderResults() {
 }
 
 const CATEGORY_LABELS = {
+  overall: 'Overall Score',
   accident: 'Accident %', ddt: 'DDT %', medical_screening: 'Medical Screening %', ogra_fleet: 'OGRA fleet %',
   hse: 'HSE Observation', quality_fail: 'Quality Fail %', abnormal_shortage: 'Abnormal Shortage',
   fake_documents: 'Fake Documents', seal_temp: 'Seal Tempering', other_omc: 'Other OMC Loading',
@@ -1048,19 +1049,6 @@ async function sendApproved() {
 
 /* ---------------- historical (server-archived workbooks) ---------------- */
 const PERIOD_ORDER = ['H1-2024', 'H2-2024', 'H1-2025', 'H2-2025', 'H1-2026'];
-const CATEGORY_LABELS = {
-  overall: 'Overall Score',
-  accident: 'Accident %',
-  ddt: 'DDT %',
-  medical_screening: 'Medical Screening %',
-  ogra_fleet: 'OGRA fleet %',
-  hse: 'HSE Observation',
-  quality_fail: 'Quality Fail & Unauthorized Mod %',
-  abnormal_shortage: 'Abnormal Shortage',
-  fake_documents: 'Fake Documents',
-  seal_temp: 'Seal Tempering',
-  other_omc: 'Other OMC Loading',
-};
 
 let contractorMode = 'all';
 let historicalData = {};
